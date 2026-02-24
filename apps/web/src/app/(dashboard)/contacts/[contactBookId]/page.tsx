@@ -175,6 +175,25 @@ export default function ContactsPage({
                   : "--"}
               </div>
             </div>
+            <div className="flex items-start gap-2">
+              <div className="text-muted-foreground w-[130px] text-sm">
+                Variables
+              </div>
+              <div className="text-sm flex flex-wrap gap-1 max-w-[220px]">
+                {(contactBookDetailQuery.data?.variables ?? []).length > 0 ? (
+                  contactBookDetailQuery.data?.variables.map((variable) => (
+                    <span
+                      key={variable}
+                      className="font-mono text-xs bg-muted px-2 py-0.5 rounded"
+                    >
+                      {variable}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">--</span>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex flex-col gap-2 rounded-lg border p-4 shadow">
             <p className="font-semibold">Recent campaigns</p>
@@ -231,6 +250,7 @@ export default function ContactsPage({
             contactBookId={contactBookId}
             contactBookName={contactBookDetailQuery.data?.name}
             doubleOptInEnabled={contactBookDetailQuery.data?.doubleOptInEnabled}
+            contactBookVariables={contactBookDetailQuery.data?.variables}
           />
         </div>
       </div>
