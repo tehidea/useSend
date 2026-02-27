@@ -18,6 +18,9 @@ import {
   GaugeIcon,
   UserRoundX,
   Webhook,
+  ChevronsUpDown,
+  Check,
+  Plus,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -53,6 +56,9 @@ import {
 } from "@usesend/ui/src/dropdown-menu";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { env } from "~/env";
+import { useTeam } from "~/providers/team-context";
+import { CreateTeamDialog } from "./team/CreateTeamDialog";
+import { useState } from "react";
 
 // General items
 const generalItems = [
@@ -127,20 +133,76 @@ const settingsItems = [
 export function AppSidebar() {
   const { data: session } = useSession();
   const showFeedback = isCloud();
+  const { currentTeam, teams, switchTeam } = useTeam();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const pathname = usePathname();
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader>
-        <SidebarGroupLabel>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold text-foreground font-mono">
-              useSend
-            </span>
-            <Badge variant="outline">Beta</Badge>
-          </div>
-        </SidebarGroupLabel>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton size="lg">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+                    {currentTeam?.name?.charAt(0)?.toUpperCase() ?? "U"}
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {currentTeam?.name ?? "Select team"}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground capitalize">
+                      {currentTeam?.plan?.toLowerCase() ?? ""}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl"
+                align="start"
+                sideOffset={4}
+              >
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Organizations
+                </DropdownMenuLabel>
+                {teams.map((team) => (
+                  <DropdownMenuItem
+                    key={team.id}
+                    onClick={() => switchTeam(team.id)}
+                    className="gap-2"
+                  >
+                    <div className="flex size-6 items-center justify-center rounded-sm border text-xs font-bold">
+                      {team.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="truncate">{team.name}</span>
+                    {team.id === currentTeam?.id && (
+                      <Check className="ml-auto size-4" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setCreateDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
+                    <Plus className="size-4" />
+                  </div>
+                  <span className="text-muted-foreground">
+                    Create organization
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <CreateTeamDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+        />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
