@@ -10,7 +10,7 @@ import { type AppRouter } from "~/server/api/root";
 
 function getTeamIdFromCookie(): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|; )usesend-team-id=([1-9]\d*)/);
+  const match = document.cookie.match(/(?:^|; )usesend-team-id=([1-9]\d*)(?:;|$)/);
   return match?.[1] ?? null;
 }
 

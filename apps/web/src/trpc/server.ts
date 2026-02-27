@@ -17,7 +17,7 @@ const createContext = cache(async () => {
   // Bridge team selection cookie into x-team-id header for RSC parity
   const cookieHeader = heads.get("cookie");
   if (cookieHeader && !heads.has("x-team-id")) {
-    const match = cookieHeader.match(/(?:^|; )usesend-team-id=([1-9]\d*)/);
+    const match = cookieHeader.match(/(?:^|; )usesend-team-id=([1-9]\d*)(?:;|$)/);
     if (match?.[1]) {
       heads.set("x-team-id", match[1]);
     }

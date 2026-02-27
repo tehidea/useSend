@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useMemo, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useCallback,
+  useState,
+  useEffect,
+} from "react";
 import { api } from "~/trpc/react";
 
 const TEAM_COOKIE = "usesend-team-id";
@@ -8,7 +15,7 @@ const TEAM_COOKIE = "usesend-team-id";
 function getTeamIdCookie(): number | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(
-    new RegExp(`(?:^|; )${TEAM_COOKIE}=([1-9]\\d*)`),
+    new RegExp(`(?:^|; )${TEAM_COOKIE}=([1-9]\\d*)(?:;|$)`),
   );
   return match ? Number(match[1]) : null;
 }
@@ -33,7 +40,7 @@ type TeamWithRole = Team & {
 };
 
 interface TeamContextType {
-  currentTeam: Team | null;
+  currentTeam: TeamWithRole | null;
   teams: TeamWithRole[];
   isLoading: boolean;
   currentRole: "ADMIN" | "MEMBER";
@@ -47,22 +54,31 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   const { data: teams, status } = api.team.getTeams.useQuery();
   const utils = api.useUtils();
 
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(
+    getTeamIdCookie,
+  );
+
+  // Sync selectedTeamId when teams load (recover from stale/missing cookie)
+  useEffect(() => {
+    if (!teams || teams.length === 0) return;
+    const isValid = selectedTeamId && teams.some((t) => t.id === selectedTeamId);
+    if (!isValid) {
+      const fallbackId = teams[0]!.id;
+      setSelectedTeamId(fallbackId);
+      setTeamIdCookie(fallbackId);
+    }
+  }, [teams, selectedTeamId]);
+
   const currentTeam = useMemo(() => {
     if (!teams || teams.length === 0) return null;
-    const savedId = getTeamIdCookie();
-    const found = savedId ? teams.find((t) => t.id === savedId) : null;
-    const selected = found ?? teams[0]!;
-    // Sync cookie if it was missing or pointed at a stale team
-    if (typeof document !== "undefined" && selected.id !== savedId) {
-      setTeamIdCookie(selected.id);
-    }
-    return selected;
-  }, [teams]);
+    return teams.find((t) => t.id === selectedTeamId) ?? teams[0]!;
+  }, [teams, selectedTeamId]);
 
   const currentRole = currentTeam?.teamUsers[0]?.role ?? "MEMBER";
 
   const switchTeam = useCallback(
     (teamId: number) => {
+      setSelectedTeamId(teamId);
       setTeamIdCookie(teamId);
       utils.invalidate();
     },
