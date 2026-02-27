@@ -8,6 +8,12 @@ import SuperJSON from "superjson";
 
 import { type AppRouter } from "~/server/api/root";
 
+function getTeamIdFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )usesend-team-id=([1-9]\d*)/);
+  return match?.[1] ?? null;
+}
+
 const createQueryClient = () => new QueryClient();
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
@@ -39,6 +45,10 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
           headers: () => {
             const headers = new Headers();
             headers.set("x-trpc-source", "nextjs-react");
+            const teamId = getTeamIdFromCookie();
+            if (teamId) {
+              headers.set("x-team-id", teamId);
+            }
             return headers;
           },
         }),
