@@ -125,8 +125,25 @@ export const protectedProcedure = authedProcedure.use(({ ctx, next }) => {
 });
 
 export const teamProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const teamIdHeader = ctx.headers.get("x-team-id");
+  let teamIdFilter: number | undefined;
+
+  if (teamIdHeader) {
+    if (!/^[1-9]\d*$/.test(teamIdHeader)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Invalid x-team-id header",
+      });
+    }
+    teamIdFilter = Number(teamIdHeader);
+  }
+
   const teamUser = await db.teamUser.findFirst({
-    where: { userId: ctx.session.user.id },
+    where: {
+      userId: ctx.session.user.id,
+      ...(teamIdFilter ? { teamId: teamIdFilter } : {}),
+    },
+    orderBy: { teamId: "asc" },
     include: { team: true },
   });
 

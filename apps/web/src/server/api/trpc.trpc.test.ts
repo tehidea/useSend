@@ -41,11 +41,20 @@ const testRouter = createTRPCRouter({
 
 const createCaller = createCallerFactory(testRouter);
 
-function getContext(session: Record<string, unknown> | null) {
+function getContext(
+  session: Record<string, unknown> | null,
+  extraHeaders?: Record<string, string>,
+) {
+  const headers = new Headers();
+  if (extraHeaders) {
+    for (const [k, v] of Object.entries(extraHeaders)) {
+      headers.set(k, v);
+    }
+  }
   return {
     db: mockDb,
     session,
-    headers: new Headers(),
+    headers,
   } as any;
 }
 
@@ -129,6 +138,89 @@ describe("tRPC middleware procedures", () => {
 
     await expect(caller.teamPing()).rejects.toMatchObject({
       code: "NOT_FOUND",
+    });
+  });
+
+  describe("x-team-id header handling", () => {
+    it.each(["abc", "1abc", "0", "-1", "3.5"])(
+      "rejects malformed x-team-id value '%s'",
+      async (badValue) => {
+        const caller = createCaller(
+          getContext(
+            { user: baseUser },
+            { "x-team-id": badValue },
+          ),
+        );
+
+        await expect(caller.teamPing()).rejects.toMatchObject({
+          code: "BAD_REQUEST",
+          message: "Invalid x-team-id header",
+        });
+        expect(mockDb.teamUser.findFirst).not.toHaveBeenCalled();
+      },
+    );
+
+    it("filters by teamId when valid x-team-id is provided", async () => {
+      mockDb.teamUser.findFirst.mockResolvedValue({
+        teamId: 42,
+        userId: 1,
+        role: "ADMIN",
+        team: { id: 42, name: "Team B" },
+      });
+
+      const caller = createCaller(
+        getContext(
+          { user: baseUser },
+          { "x-team-id": "42" },
+        ),
+      );
+
+      await expect(caller.teamPing()).resolves.toEqual({ teamId: 42 });
+      expect(mockDb.teamUser.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 1, teamId: 42 },
+        }),
+      );
+    });
+
+    it("falls back to findFirst without teamId filter when header is absent", async () => {
+      mockDb.teamUser.findFirst.mockResolvedValue({
+        teamId: 10,
+        userId: 1,
+        role: "ADMIN",
+        team: { id: 10, name: "Acme" },
+      });
+
+      const caller = createCaller(
+        getContext({ user: baseUser }),
+      );
+
+      await expect(caller.teamPing()).resolves.toEqual({ teamId: 10 });
+      expect(mockDb.teamUser.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 1 },
+        }),
+      );
+    });
+
+    it("uses deterministic ordering (teamId asc) for fallback", async () => {
+      mockDb.teamUser.findFirst.mockResolvedValue({
+        teamId: 5,
+        userId: 1,
+        role: "MEMBER",
+        team: { id: 5, name: "First" },
+      });
+
+      const caller = createCaller(
+        getContext({ user: baseUser }),
+      );
+
+      await caller.teamPing();
+      expect(mockDb.teamUser.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { teamId: "asc" },
+        }),
+      );
     });
   });
 });

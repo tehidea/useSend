@@ -55,32 +55,7 @@ export class TeamService {
   static async createTeam(
     userId: number,
     name: string,
-  ): Promise<Team | undefined> {
-    const teams = await db.team.findMany({
-      where: {
-        teamUsers: {
-          some: {
-            userId: userId,
-          },
-        },
-      },
-    });
-
-    if (teams.length > 0) {
-      logger.info({ userId }, "User already has a team");
-      return;
-    }
-
-    if (!env.NEXT_PUBLIC_IS_CLOUD) {
-      const _team = await db.team.findFirst();
-      if (_team) {
-        throw new TRPCError({
-          message: "Can't have multiple teams in self hosted version",
-          code: "UNAUTHORIZED",
-        });
-      }
-    }
-
+  ): Promise<Team> {
     const created = await db.team.create({
       data: {
         name,
@@ -171,18 +146,26 @@ export class TeamService {
     }
 
     const user = await db.user.findUnique({
-      where: {
-        email,
-      },
+      where: { email },
       include: {
-        teamUsers: true,
+        teamUsers: { where: { teamId } },
       },
     });
 
     if (user && user.teamUsers.length > 0) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "User already part of a team",
+        message: "User is already a member of this team",
+      });
+    }
+
+    const existingInvite = await db.teamInvite.findUnique({
+      where: { teamId_email: { teamId, email } },
+    });
+    if (existingInvite) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "An invite for this email already exists in this team",
       });
     }
 
